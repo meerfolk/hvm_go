@@ -25,15 +25,17 @@ func main() {
 		key = params[0]
 	}
 	if len(params) == 2 {
+		key = params[0]
 		val = params[1]
 	}
+	fmt.Println(key)
+	fmt.Println(val)
 	paramsResolver(key, val)
 }
 
 func settingsResolver() (settings *Settings) {
 	b, err := ioutil.ReadFile("./conf.json")
 	if err != nil {
-		fmt.Println("open file error : " + err.Error())
 		newSettings := new(Settings)
 		newSettings.Path = stdPath
 		return newSettings
@@ -47,9 +49,23 @@ func settingsResolver() (settings *Settings) {
 func paramsResolver(key, val string) {
 	switch key {
 	case "download":
+		if err := download(val); err != nil {
+			panic(err)
+		}
 	case "setup":
-		setup(val)
+		if err := setup(val); err != nil {
+			panic(err)
+		}
 	}
+}
+
+func download(version string) error {
+	fmt.Println("download version " + version)
+	hx := HaxeVersion{version}
+	if err := hx.download(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func setup(path string) error {
@@ -70,10 +86,10 @@ func setup(path string) error {
 	b, err := json.Marshal(settings)
 	fmt.Println("string settings " + string(b))
 	if err != nil {
-		fmt.Println("json error " + err.Error())
+		return err
 	}
 	if err := ioutil.WriteFile("./conf.json", b, 0755); err != nil {
-		fmt.Println("write file error : " + err.Error())
+		return err
 	}
 	return nil
 }
