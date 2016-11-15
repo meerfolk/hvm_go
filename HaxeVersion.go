@@ -66,7 +66,18 @@ func (h *HaxeVersion) download() error {
 		fmt.Println("ungzip err")
 		return err
 	}
-	if err := untar(settings.Path+"temp.tar", settings.Path); err != nil {
+	file.Close()
+	if err := os.Remove(settings.Path + "temp.tar.gz"); err != nil {
+		return err
+	}
+	dirName, err := untar(settings.Path+"temp.tar", settings.Path)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(settings.Path + "temp.tar"); err != nil {
+		return err
+	}
+	if err := os.Rename(settings.Path+dirName+"/", settings.Path+h.version+"/"); err != nil {
 		return err
 	}
 	return nil
@@ -147,10 +158,11 @@ func ungzip(source, target string) error {
 	return nil
 }
 
-func untar(tarball, target string) error {
+func untar(tarball, target string) (string, error) {
+	var basePath = ""
 	reader, err := os.Open(tarball)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer reader.Close()
 	tarReader := tar.NewReader(reader)
@@ -159,26 +171,29 @@ func untar(tarball, target string) error {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return err
+			return "", err
 		}
 		path := filepath.Join(target, header.Name)
 		info := header.FileInfo()
 		if info.IsDir() {
+			if basePath == "" {
+				basePath = info.Name()
+			}
 			if err := os.MkdirAll(path, info.Mode()); err != nil {
-				return err
+				return "", err
 			}
 			continue
 		}
 		file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
 		if err != nil {
-			return err
+			return "", err
 		}
 		defer file.Close()
 		_, err = io.Copy(file, tarReader)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 	}
-	return nil
+	return basePath, nil
 }
