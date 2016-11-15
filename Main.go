@@ -28,8 +28,6 @@ func main() {
 		key = params[0]
 		val = params[1]
 	}
-	fmt.Println(key)
-	fmt.Println(val)
 	paramsResolver(key, val)
 }
 
@@ -56,7 +54,23 @@ func paramsResolver(key, val string) {
 		if err := setup(val); err != nil {
 			panic(err)
 		}
+	case "list":
+		if err := getList(); err != nil {
+			panic(err)
+		}
 	}
+}
+
+func getList() error {
+	files, err := ioutil.ReadDir(settings.Path)
+	if err != nil {
+		return err
+	}
+	fmt.Println("version's list :")
+	for _, file := range files {
+		fmt.Println(file.Name())
+	}
+	return nil
 }
 
 func download(version string) error {
