@@ -1,21 +1,21 @@
 package main
 
-import "net/http"
-import "os"
-import "io"
+import (
+	"archive/tar"
+	"compress/gzip"
+	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"local"
+	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+)
 
-import "compress/gzip"
-import "path/filepath"
-import "io/ioutil"
-import "encoding/json"
-
-import "runtime"
 import "golang.org/x/net/html"
-import "strings"
-import "fmt"
-import "archive/tar"
-
-//import "compress/gzip"
 
 //HaxeVersion comment
 type HaxeVersion struct {
@@ -35,9 +35,18 @@ type TagInfo struct {
 	Object TagObject
 }
 
+func (h *HaxeVersion) set(path string) error {
+	err := myUtils.RecursiveCopy(filepath.Join(settings.Path, h.version), path)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (h *HaxeVersion) download() error {
 	var versionURL string
 	sha, err := getCommit(h.version)
+	fmt.Println("Commit SHA " + sha)
 	if err != nil {
 		return err
 	}
@@ -50,34 +59,49 @@ func (h *HaxeVersion) download() error {
 			versionURL = h
 		}
 	}
+	fmt.Println("Downloading from " + versionURL)
 	resp, err := http.Get(versionURL)
 	if err != nil {
 		return err
 	}
-
-	file, err := os.Create(settings.Path + "temp.tar.gz")
+	ttgz := filepath.Join(settings.Path, "temp.tar.gz")
+	file, err := os.Create(ttgz)
 	if err != nil {
 		return err
 	}
 	if _, err := io.Copy(file, resp.Body); err != nil {
 		return err
 	}
-	if err := ungzip(settings.Path+"temp.tar.gz", settings.Path+"temp.tar"); err != nil {
+	fmt.Println("GUnzip temp.tar.gz")
+	tt := filepath.Join(settings.Path, "temp.tar")
+	if err := ungzip(ttgz, tt); err != nil {
 		fmt.Println("ungzip err")
 		return err
 	}
 	file.Close()
-	if err := os.Remove(settings.Path + "temp.tar.gz"); err != nil {
+	fmt.Println("Remove temp.tar.gz")
+	if err := os.Remove(ttgz); err != nil {
 		return err
 	}
-	dirName, err := untar(settings.Path+"temp.tar", settings.Path)
+	fmt.Println("Untar temp.tar")
+	dirName, err := untar(tt, settings.Path)
 	if err != nil {
 		return err
 	}
-	if err := os.Remove(settings.Path + "temp.tar"); err != nil {
+	fmt.Println("Remove temp.tar")
+	if err := os.Remove(tt); err != nil {
 		return err
 	}
-	if err := os.Rename(settings.Path+dirName+"/", settings.Path+h.version+"/"); err != nil {
+	fmt.Println("Rename path")
+	oldPath := filepath.Join(settings.Path, dirName)
+	newPath := filepath.Join(settings.Path, h.version)
+	p, _ := os.Stat(newPath)
+	if p != nil {
+		if err := os.RemoveAll(newPath); err != nil {
+			return err
+		}
+	}
+	if err := os.Rename(oldPath, newPath); err != nil {
 		return err
 	}
 	return nil
